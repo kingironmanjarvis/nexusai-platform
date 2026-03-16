@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nexusai-platform
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PYTHONPATH
+        value: /app
+    healthCheckPath: /health
+    autoDeploy: true
