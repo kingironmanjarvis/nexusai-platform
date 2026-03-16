@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexusAI — AI Agent Platform</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--font); }
+  
+  /* Layout */
+  .app { display:grid; grid-template-columns:260px 1fr; grid-template-rows:56px 1fr; height:100vh; }
+  
+  /* Topbar */
+  .topbar {
+    grid-column: 1/-1;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 24px;
+    z-index:10;
+  }
+  .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; letter-spacing:-0.3px; }
+  .logo-icon { width:28px; height:28px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .status-badge { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .btn { padding:7px 16px; border-radius:8px; border:none; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.15s; }
+  .btn-primary { background:var(--accent); color:white; }
+  .btn-primary:hover { background:var(--accent2); }
+  .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); border-color:var(--accent); }
+
+  /* Sidebar */
+  .sidebar {
+    background:var(--surface);
+    border-right:1px solid var(--border);
+    padding:16px 12px;
+    overflow-y:auto;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .sidebar-section { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); padding:8px 12px 4px; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px;
+    padding:8px 12px; border-radius:8px; cursor:pointer;
+    font-size:13px; color:var(--muted); transition:all 0.15s;
+    border:1px solid transparent;
+  }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:rgba(99,102,241,0.15); color:var(--accent2); border-color:rgba(99,102,241,0.3); }
+  .nav-icon { font-size:15px; width:18px; text-align:center; }
+  .nav-badge { margin-left:auto; background:var(--accent); color:white; font-size:10px; padding:1px 6px; border-radius:10px; }
+
+  /* Main content */
+  .main { overflow:hidden; display:flex; flex-direction:column; }
+  
+  /* Views */
+  .view { display:none; flex-direction:column; height:100%; }
+  .view.active { display:flex; }
+
+  /* Agent Chat View */
+  .chat-container { display:flex; flex-direction:column; height:100%; }
+  .chat-header { padding:20px 24px 16px; border-bottom:1px solid var(--border); }
+  .chat-header h2 { font-size:16px; font-weight:600; }
+  .chat-header p { font-size:12px; color:var(--muted); margin-top:2px; }
+  
+  .chat-messages { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+  .message { display:flex; gap:12px; max-width:800px; }
+  .message.user { flex-direction:row-reverse; align-self:flex-end; }
+  .avatar { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .avatar.ai { background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); }
+  .avatar.user { background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.3); }
+  .msg-content { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 16px; font-size:13.5px; line-height:1.6; max-width:680px; }
+  .message.user .msg-content { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.25); }
+  .msg-meta { font-size:11px; color:var(--muted); margin-top:4px; }
+  
+  /* Task cards in chat */
+  .task-pipeline { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin:4px 0; }
+  .task-pipeline-title { font-size:12px; font-weight:600; color:var(--accent2); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .task-item { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:7px; font-size:12px; margin-bottom:4px; background:rgba(255,255,255,0.03); }
+  .task-item .task-status { width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; }
+  .task-status.done { background:rgba(16,185,129,0.2); color:var(--green); }
+  .task-status.running { background:rgba(99,102,241,0.2); color:var(--accent2); animation:spin 1s linear infinite; }
+  .task-status.pending { background:rgba(100,116,139,0.2); color:var(--muted); }
+  .task-status.failed { background:rgba(239,68,68,0.2); color:var(--red); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .task-agent-badge { margin-left:auto; font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(99,102,241,0.15); color:var(--accent2); }
+  
+  .code-block { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:14px 16px; font-family:'JetBrains Mono','Fira Code',monospace; font-size:12px; line-height:1.7; color:#e2e8f0; margin:8px 0; overflow-x:auto; white-space:pre; }
+  .code-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .code-lang { font-size:11px; color:var(--muted); }
+  .copy-btn { font-size:11px; color:var(--muted); cursor:pointer; padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:transparent; }
+  .copy-btn:hover { color:var(--text); }
+
+  .chat-input-area { padding:16px 24px; border-top:1px solid var(--border); }
+  .chat-input-wrapper { display:flex; gap:10px; align-items:flex-end; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 16px; transition:border-color 0.15s; }
+  .chat-input-wrapper:focus-within { border-color:var(--accent); }
+  .chat-input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:13.5px; font-family:var(--font); resize:none; max-height:120px; line-height:1.5; }
+  .chat-input::placeholder { color:var(--muted); }
+  .send-btn { background:var(--accent); border:none; border-radius:8px; padding:8px 16px; color:white; cursor:pointer; font-size:13px; font-weight:500; white-space:nowrap; transition:background 0.15s; }
+  .send-btn:hover { background:var(--accent2); }
+  .send-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .mode-toggle { display:flex; gap:6px; margin-bottom:10px; }
+  .mode-btn { padding:4px 12px; border-radius:20px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:12px; cursor:pointer; transition:all 0.15s; }
+  .mode-btn.active { background:rgba(99,102,241,0.15); color:var(--accent2); border-color:rgba(99,102,241,0.3); }
+
+  /* Dashboard View */
+  .dashboard-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; padding:24px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .stat-label { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .stat-value { font-size:28px; font-weight:700; color:var(--text); }
+  .stat-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .stat-icon { float:right; font-size:24px; opacity:0.4; }
+
+  /* Agents View */
+  .agents-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; padding:24px; }
+  .agent-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .agent-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .agent-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .agent-name { font-weight:600; font-size:14px; }
+  .agent-role { font-size:12px; color:var(--muted); }
+  .agent-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .agent-stat { background:var(--surface2); border-radius:8px; padding:10px; text-align:center; }
+  .agent-stat-value { font-size:18px; font-weight:600; }
+  .agent-stat-label { font-size:10px; color:var(--muted); margin-top:2px; }
+  .agent-status { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--green); margin-top:12px; }
+
+  /* History View */
+  .history-list { padding:24px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; height:100%; }
+  .history-item { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color 0.15s; }
+  .history-item:hover { border-color:var(--accent); }
+  .history-goal { font-size:13.5px; font-weight:500; margin-bottom:8px; }
+  .history-meta { display:flex; gap:16px; font-size:11px; color:var(--muted); }
+  .history-badge { padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+  .badge-success { background:rgba(16,185,129,0.15); color:var(--green); }
+  .badge-fail { background:rgba(239,68,68,0.15); color:var(--red); }
+
+  /* Typing indicator */
+  .typing { display:flex; gap:4px; align-items:center; padding:12px 16px; }
+  .typing span { width:6px; height:6px; border-radius:50%; background:var(--muted); animation:typing 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay:0.2s; }
+  .typing span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes typing { 0%,60%,100%{opacity:0.3;transform:scale(1)} 30%{opacity:1;transform:scale(1.2)} }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  
+  /* Welcome message */
+  .welcome { text-align:center; padding:60px 24px; max-width:500px; margin:0 auto; }
+  .welcome h3 { font-size:20px; font-weight:600; margin-bottom:8px; }
+  .welcome p { font-size:13px; color:var(--muted); line-height:1.6; }
+  .welcome-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:20px; }
+  .chip { padding:8px 14px; border-radius:20px; border:1px solid var(--border); font-size:12px; color:var(--muted); cursor:pointer; transition:all 0.15s; background:var(--surface2); }
+  .chip:hover { border-color:var(--accent); color:var(--accent2); }
+  
+  .section-header { padding:20px 24px 0; }
+  .section-header h2 { font-size:16px; font-weight:600; }
+  .section-header p { font-size:12px; color:var(--muted); margin-top:2px; }
+  
+  /* Progress bar */
+  .progress-bar { height:3px; background:var(--border); border-radius:2px; margin-top:8px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s ease; }
+
+  /* API endpoint pill */  
+  .endpoint { font-family:monospace; font-size:11px; background:var(--surface2); border:1px solid var(--border); padding:3px 8px; border-radius:5px; color:var(--accent2); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">⬡</div>
+      NexusAI
+      <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">v1.0</span>
+    </div>
+    <div class="topbar-right">
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+      </div>
+      <a href="https://nexusai-platform.onrender.com/docs" target="_blank" class="btn btn-ghost" style="text-decoration:none">API Docs</a>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">Platform</div>
+    <div class="nav-item active" onclick="showView('chat')" id="nav-chat">
+      <span class="nav-icon">💬</span> Agent Chat
+    </div>
+    <div class="nav-item" onclick="showView('run')" id="nav-run">
+      <span class="nav-icon">▶</span> Run Goal
+    </div>
+    <div class="nav-item" onclick="showView('agents')" id="nav-agents">
+      <span class="nav-icon">🤖</span> Agents
+    </div>
+    <div class="nav-item" onclick="showView('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showView('history')" id="nav-history">
+      <span class="nav-icon">🕓</span> History
+    </div>
+    
+    <div class="sidebar-section" style="margin-top:12px">Tools</div>
+    <div class="nav-item" onclick="showView('code')" id="nav-code">
+      <span class="nav-icon">⌨</span> Code Sandbox
+    </div>
+    <div class="nav-item" onclick="showView('memory')" id="nav-memory">
+      <span class="nav-icon">🧠</span> Memory
+    </div>
+    
+    <div style="margin-top:auto;padding-top:16px;">
+      <div style="font-size:11px;color:var(--muted);padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px;">Backend</div>
+        <div>🟢 nexusai-platform.onrender.com</div>
+        <div style="margin-top:4px;">Model: LLaMA 3.3 70B</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    
+    <!-- CHAT VIEW -->
+    <div class="view active" id="view-chat">
+      <div class="chat-container">
+        <div class="chat-header">
+          <h2>Agent Chat</h2>
+          <p>Talk to the AI directly or run complex goals through the multi-agent pipeline</p>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="welcome">
+            <div style="font-size:40px;margin-bottom:16px;">⬡</div>
+            <h3>NexusAI is ready</h3>
+            <p>Ask anything. Run goals. Execute code. The full multi-agent pipeline is live and connected to real LLMs.</p>
+            <div class="welcome-chips">
+              <div class="chip" onclick="fillPrompt('Write a Python web scraper for Hacker News')">Write a web scraper</div>
+              <div class="chip" onclick="fillPrompt('Analyze the pros and cons of microservices architecture')">Analyze microservices</div>
+              <div class="chip" onclick="fillPrompt('Write and test a binary search algorithm')">Binary search algorithm</div>
+              <div class="chip" onclick="fillPrompt('Build a REST API for a todo app')">Build a REST API</div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="modeChat" onclick="setMode('chat')">💬 Chat</button>
+            <button class="mode-btn" id="modeRun" onclick="setMode('run')">⚡ Multi-Agent Run</button>
+          </div>
+          <div class="chat-input-wrapper">
+            <textarea class="chat-input" id="chatInput" placeholder="Ask anything or describe a goal..." rows="1"
+              onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUN VIEW -->
+    <div class="view" id="view-run">
+      <div class="section-header" style="padding:24px 24px 0">
+        <h2>⚡ Run a Goal</h2>
+        <p>The full multi-agent pipeline: Planner → Agents → Reviewer → Synthesis</p>
+      </div>
+      <div style="padding:24px;flex:1;overflow-y:auto;">
+        <div style="max-width:700px;">
+          <textarea id="goalInput" placeholder="Describe your goal in detail..." 
+            style="width:100%;height:120px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;color:var(--text);font-family:var(--font);font-size:13.5px;resize:none;outline:none;line-height:1.5;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          <div style="margin-top:12px;display:flex;gap:10px;">
+            <button class="btn btn-primary" onclick="runGoal()" id="runBtn" style="padding:10px 24px;">⚡ Execute Goal</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('goalInput').value=''">Clear</button>
+          </div>
+          <div id="runOutput" style="margin-top:24px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENTS VIEW -->
+    <div class="view" id="view-agents">
+      <div class="section-header">
+        <h2>🤖 Active Agents</h2>
+        <p>Specialized agents working in coordination</p>
+      </div>
+      <div class="agents-grid" id="agentsGrid">
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-icon" style="background:rgba(99,102,241,0.15);">⌨</div>
+            <div><div class="agent-name">Coding Agent</div><div class="agent-role">Writes, executes & debugs code</div></div>
+          </div>
+          <div class="agent-stats">
+            <div class="agent-stat"><div class="agent-stat-value" id="coding-tasks">—</div><div class="agent-stat-label">Tasks</div></div>
+            <div class="agent-stat"><div class="agent-stat-value" id="coding-success">—</div><div class="agent-stat-label">Success Rate</div></div>
+          </div>
+          <div class="agent-status"><div class="status-dot"></div>Online · LLaMA 3.3 70B</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-icon" style="background:rgba(16,185,129,0.15);">🔬</div>
+            <div><div class="agent-name">Research Agent</div><div class="agent-role">Deep analysis & synthesis</div></div>
+          </div>
+          <div class="agent-stats">
+            <div class="agent-stat"><div class="agent-stat-value" id="research-tasks">—</div><div class="agent-stat-label">Tasks</div></div>
+            <div class="agent-stat"><div class="agent-stat-value" id="research-success">—</div><div class="agent-stat-label">Success Rate</div></div>
+          </div>
+          <div class="agent-status"><div class="status-dot"></div>Online · LLaMA 3.3 70B</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-icon" style="background:rgba(245,158,11,0.15);">✅</div>
+            <div><div class="agent-name">Reviewer Agent</div><div class="agent-role">QA, validation & critique</div></div>
+          </div>
+          <div class="agent-stats">
+            <div class="agent-stat"><div class="agent-stat-value" id="reviewer-tasks">—</div><div class="agent-stat-label">Tasks</div></div>
+            <div class="agent-stat"><div class="agent-stat-value" id="reviewer-success">—</div><div class="agent-stat-label">Success Rate</div></div>
+          </div>
+          <div class="agent-status"><div class="status-dot"></div>Online · LLaMA 3.3 70B</div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-icon" style="background:rgba(236,72,153,0.15);">📈</div>
+            <div><div class="agent-name">Optimizer Agent</div><div class="agent-role">Performance & architecture</div></div>
+          </div>
+          <div class="agent-stats">
+            <div class="agent-stat"><div class="agent-stat-value" id="optimizer-tasks">—</div><div class="agent-stat-label">Tasks</div></div>
+            <div class="agent-stat"><div class="agent-stat-value" id="optimizer-success">—</div><div class="agent-stat-label">Success Rate</div></div>
+          </div>
+          <div class="agent-status"><div class="status-dot"></div>Online · LLaMA 3.3 70B</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div class="view" id="view-dashboard">
+      <div class="section-header">
+        <h2>📊 Dashboard</h2>
+        <p>Live platform metrics</p>
+      </div>
+      <div class="dashboard-grid" id="dashboardGrid">
+        <div class="stat-card"><div class="stat-icon">⏱</div><div class="stat-label">Uptime</div><div class="stat-value" id="stat-uptime">—</div><div class="stat-sub">seconds</div></div>
+        <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-label">Total Executions</div><div class="stat-value" id="stat-execs">—</div><div class="stat-sub">goal runs</div></div>
+        <div class="stat-card"><div class="stat-icon">💬</div><div class="stat-label">Active Sessions</div><div class="stat-value" id="stat-sessions">—</div><div class="stat-sub">conversations</div></div>
+        <div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-label">Memories Stored</div><div class="stat-value" id="stat-memories">—</div><div class="stat-sub">vector entries</div></div>
+      </div>
+      <div style="padding:0 24px 24px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px;">API Endpoints</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--green);font-weight:600;width:50px;">GET</span><span class="endpoint">/health</span><span style="color:var(--muted)">Platform health & stats</span></div>
+            <div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--accent2);font-weight:600;width:50px;">POST</span><span class="endpoint">/run</span><span style="color:var(--muted)">Execute a goal (multi-agent)</span></div>
+            <div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--accent2);font-weight:600;width:50px;">POST</span><span class="endpoint">/chat</span><span style="color:var(--muted)">Conversational AI interface</span></div>
+            <div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--accent2);font-weight:600;width:50px;">POST</span><span class="endpoint">/agent</span><span style="color:var(--muted)">Run a specific agent</span></div>
+            <div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--accent2);font-weight:600;width:50px;">POST</span><span class="endpoint">/code/execute</span><span style="color:var(--muted)">Execute code in sandbox</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY VIEW -->
+    <div class="view" id="view-history">
+      <div class="section-header">
+        <h2>🕓 Execution History</h2>
+        <p>All past goal runs</p>
+      </div>
+      <div class="history-list" id="historyList">
+        <div style="color:var(--muted);text-align:center;padding:40px;font-size:13px;">No executions yet. Run a goal to see history.</div>
+      </div>
+    </div>
+
+    <!-- CODE SANDBOX VIEW -->
+    <div class="view" id="view-code">
+      <div class="section-header">
+        <h2>⌨ Code Sandbox</h2>
+        <p>Execute Python code directly on the backend</p>
+      </div>
+      <div style="padding:24px;flex:1;display:flex;flex-direction:column;gap:16px;overflow:hidden;">
+        <textarea id="codeInput" placeholder="# Write Python code here...
+print('Hello from NexusAI sandbox!')"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;color:#e2e8f0;font-family:'JetBrains Mono','Fira Code',monospace;font-size:13px;resize:none;outline:none;line-height:1.6;min-height:200px;max-height:50%;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        <button class="btn btn-primary" onclick="runCode()" style="width:fit-content;padding:10px 24px;">▶ Run Code</button>
+        <div id="codeOutput" style="flex:1;background:#0d1117;border:1px solid var(--border);border-radius:12px;padding:16px;font-family:monospace;font-size:12px;overflow-y:auto;white-space:pre-wrap;color:#e2e8f0;min-height:100px;"></div>
+      </div>
+    </div>
+
+    <!-- MEMORY VIEW -->
+    <div class="view" id="view-memory">
+      <div class="section-header">
+        <h2>🧠 Memory System</h2>
+        <p>Platform memory — short-term and long-term vector storage</p>
+      </div>
+      <div style="padding:24px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;" id="memoryStats">
+          <div class="stat-card"><div class="stat-label">Short-term Memory</div><div class="stat-value" id="mem-short">—</div><div class="stat-sub">working memory entries</div></div>
+          <div class="stat-card"><div class="stat-label">Long-term Memory</div><div class="stat-value" id="mem-long">—</div><div class="stat-sub">vector embeddings</div></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Memory Architecture</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+            <div>• <strong style="color:var(--text)">Short-term:</strong> In-memory ring buffer (50 entries), fast access for recent context</div>
+            <div>• <strong style="color:var(--text)">Long-term:</strong> ChromaDB vector database with semantic search (cosine similarity)</div>
+            <div>• <strong style="color:var(--text)">Retrieval:</strong> Automatic RAG — relevant memories injected into every agent prompt</div>
+            <div>• <strong style="color:var(--text)">Model:</strong> all-MiniLM-L6-v2 for embeddings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'https://nexusai-platform.onrender.com';
+let currentMode = 'chat';
+let sessionId = 'session-' + Math.random().toString(36).substr(2,9);
+let isLoading = false;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'dashboard' || name === 'agents' || name === 'memory') loadStats();
+  if (name === 'history') loadHistory();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeChat').classList.toggle('active', mode === 'chat');
+  document.getElementById('modeRun').classList.toggle('active', mode === 'run');
+  const input = document.getElementById('chatInput');
+  input.placeholder = mode === 'chat' ? 'Ask anything...' : 'Describe a goal to run through all agents...';
+}
+
+function fillPrompt(text) {
+  document.getElementById('chatInput').value = text;
+  document.getElementById('chatInput').focus();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg || isLoading) return;
+  
+  input.value = '';
+  input.style.height = 'auto';
+  
+  // Remove welcome screen
+  const welcome = document.querySelector('.welcome');
+  if (welcome) welcome.remove();
+  
+  addMessage('user', msg);
+  
+  if (currentMode === 'run') {
+    await executeRun(msg, 'chat');
+  } else {
+    await executeChat(msg);
+  }
+}
+
+function addMessage(role, content, extra = null) {
+  const messages = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  
+  const avatar = role === 'user' ? '👤' : '⬡';
+  const avatarClass = role === 'user' ? 'user' : 'ai';
+  
+  // Format code blocks
+  const formatted = formatContent(content);
+  
+  div.innerHTML = `
+    <div class="avatar ${avatarClass}">${avatar}</div>
+    <div>
+      <div class="msg-content">${formatted}</div>
+      ${extra ? extra : ''}
+    </div>
+  `;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+function formatContent(text) {
+  // Escape HTML
+  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  
+  // Code blocks
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => `
+    <div style="margin:8px 0;">
+      <div class="code-header">
+        <span class="code-lang">${lang || 'code'}</span>
+        <button class="copy-btn" onclick="copyCode(this)">copy</button>
+      </div>
+      <div class="code-block">${code.trim()}</div>
+    </div>
+  `);
+  
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, '<code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px;">$1</code>');
+  
+  // Bold
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  
+  // Line breaks
+  text = text.replace(/\n/g, '<br>');
+  
+  return text;
+}
+
+function copyCode(btn) {
+  const code = btn.closest('div').nextElementSibling.textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+
+function addTyping() {
+  const messages = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'message';
+  div.id = 'typing-indicator';
+  div.innerHTML = `
+    <div class="avatar ai">⬡</div>
+    <div class="msg-content"><div class="typing"><span></span><span></span><span></span></div></div>
+  `;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+async function executeChat(message) {
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+  addTyping();
+  
+  try {
+    const res = await fetch(API + '/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ message, session_id: sessionId })
+    });
+    const data = await res.json();
+    removeTyping();
+    addMessage('assistant', data.response, `<div class="msg-meta">${data.tokens_used} tokens · ${data.latency_ms}ms</div>`);
+  } catch(e) {
+    removeTyping();
+    addMessage('assistant', '⚠️ Error connecting to backend. Make sure the Render service is running.', '');
+  }
+  
+  isLoading = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+async function executeRun(goal, context = 'run') {
+  isLoading = true;
+  const sendBtn = document.getElementById('sendBtn');
+  const runBtn = document.getElementById('runBtn');
+  if (sendBtn) sendBtn.disabled = true;
+  if (runBtn) runBtn.disabled = true;
+  
+  // Show planning message
+  if (context === 'chat') addTyping();
+  
+  const outputEl = document.getElementById('runOutput');
+  
+  try {
+    const res = await fetch(API + '/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ goal })
+    });
+    const data = await res.json();
+    
+    if (context === 'chat') {
+      removeTyping();
+      // Build task pipeline display
+      const taskHtml = data.tasks.map(t => `
+        <div class="task-item">
+          <div class="task-status ${t.success ? 'done' : 'failed'}">${t.success ? '✓' : '✗'}</div>
+          <div>${t.task_title}</div>
+          <div class="task-agent-badge">${t.agent}</div>
+        </div>
+      `).join('');
+      
+      const pipelineHtml = `
+        <div class="task-pipeline">
+          <div class="task-pipeline-title">⚡ ${data.total_tasks} tasks · ${data.successful_tasks} successful · ${data.total_tokens} tokens · ${data.elapsed_seconds}s</div>
+          ${taskHtml}
+        </div>
+      `;
+      addMessage('assistant', data.synthesis, pipelineHtml);
+    } else {
+      // Run view output
+      const taskHtml = data.tasks.map(t => `
+        <div class="task-item" style="margin-bottom:4px;">
+          <div class="task-status ${t.success ? 'done' : 'failed'}">${t.success ? '✓' : '✗'}</div>
+          <strong>${t.task_title}</strong>
+          <span style="color:var(--muted);font-size:11px;margin-left:8px;">${t.tokens_used} tokens</span>
+          <div class="task-agent-badge">${t.agent}</div>
+        </div>
+      `).join('');
+      
+      outputEl.innerHTML = `
+        <div class="task-pipeline" style="margin-bottom:16px;">
+          <div class="task-pipeline-title">✅ Completed · ${data.total_tasks} tasks · ${data.total_tokens} tokens · ${data.elapsed_seconds}s</div>
+          ${taskHtml}
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:12px;">SYNTHESIS</div>
+          <div style="font-size:13px;line-height:1.7;">${formatContent(data.synthesis)}</div>
+        </div>
+      `;
+    }
+  } catch(e) {
+    if (context === 'chat') {
+      removeTyping();
+      addMessage('assistant', '⚠️ Backend error: ' + e.message, '');
+    } else {
+      outputEl.innerHTML = `<div style="color:var(--red);padding:16px;background:var(--surface);border-radius:8px;">Error: ${e.message}</div>`;
+    }
+  }
+  
+  isLoading = false;
+  if (sendBtn) sendBtn.disabled = false;
+  if (runBtn) runBtn.disabled = false;
+}
+
+// ── Run Goal View ─────────────────────────────────────────────────────────────
+async function runGoal() {
+  const goal = document.getElementById('goalInput').value.trim();
+  if (!goal) return;
+  await executeRun(goal, 'runview');
+}
+
+// ── Code Sandbox ──────────────────────────────────────────────────────────────
+async function runCode() {
+  const code = document.getElementById('codeInput').value.trim();
+  const output = document.getElementById('codeOutput');
+  if (!code) return;
+  
+  output.textContent = 'Running...';
+  output.style.color = 'var(--muted)';
+  
+  try {
+    const res = await fetch(API + '/code/execute', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ code, language: 'python' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      output.style.color = '#e2e8f0';
+      output.textContent = data.stdout || '(no output)';
+    } else {
+      output.style.color = 'var(--red)';
+      output.textContent = data.stderr || data.error || 'Execution failed';
+    }
+  } catch(e) {
+    output.style.color = 'var(--red)';
+    output.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── Stats & Health ────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res = await fetch(API + '/stats');
+    const data = await res.json();
+    
+    // Dashboard
+    const el = id => document.getElementById(id);
+    if (el('stat-uptime')) el('stat-uptime').textContent = data.uptime_seconds;
+    if (el('stat-execs')) el('stat-execs').textContent = data.total_executions;
+    if (el('stat-sessions')) el('stat-sessions').textContent = data.active_sessions;
+    
+    const mem = data.agent_stats?.memory;
+    if (mem) {
+      if (el('stat-memories')) el('stat-memories').textContent = mem.long_term_count;
+      if (el('mem-short')) el('mem-short').textContent = mem.short_term_count;
+      if (el('mem-long')) el('mem-long').textContent = mem.long_term_count;
+    }
+    
+    // Agents
+    const agents = data.agent_stats?.agents || {};
+    for (const [name, stats] of Object.entries(agents)) {
+      const tasksEl = document.getElementById(name + '-tasks');
+      const successEl = document.getElementById(name + '-success');
+      if (tasksEl) tasksEl.textContent = stats.tasks_executed;
+      if (successEl) successEl.textContent = Math.round(stats.success_rate * 100) + '%';
+    }
+  } catch(e) {
+    console.log('Stats load failed:', e.message);
+  }
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(API + '/history?limit=20');
+    const data = await res.json();
+    const list = document.getElementById('historyList');
+    
+    if (!data.executions?.length) {
+      list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:13px;">No executions yet.</div>';
+      return;
+    }
+    
+    list.innerHTML = data.executions.reverse().map(e => `
+      <div class="history-item">
+        <div class="history-goal">${e.goal}</div>
+        <div class="history-meta">
+          <span class="history-badge ${e.success ? 'badge-success' : 'badge-fail'}">${e.success ? '✓ Success' : '✗ Failed'}</span>
+          <span>${e.total_tasks} tasks</span>
+          <span>${e.total_tokens} tokens</span>
+          <span>${e.elapsed_seconds}s</span>
+          <span style="margin-left:auto;">${e.run_id}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.log('History load failed');
+  }
+}
+
+// ── Health Check ──────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const res = await fetch(API + '/health', { signal: AbortSignal.timeout(8000) });
+    const data = await res.json();
+    document.getElementById('statusDot').style.background = 'var(--green)';
+    document.getElementById('statusText').textContent = 'Online';
+  } catch(e) {
+    document.getElementById('statusDot').style.background = 'var(--yellow)';
+    document.getElementById('statusText').textContent = 'Deploying...';
+    setTimeout(checkHealth, 10000);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+checkHealth();
+setInterval(checkHealth, 30000);
+loadStats();
+</script>
+</body>
+</html>
